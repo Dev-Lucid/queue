@@ -1,0 +1,27 @@
+{
+  "name": "queue",
+  "type":"library",
+  "repo": "devlucid/queue",
+  "description": "",
+  "authors": [
+      {
+          "name":     "Mike Thorn",
+          "email":    "mthorn@devlucid.com"
+      }
+  ],
+  "maintainers": [
+      {
+          "name":     "Mike Thorn",
+          "email":    "mthorn@devlucid.com"
+      }
+  ],
+  "autoload": {
+      "psr-4": {"Lucid\\Component\\Queue\\": "/src/php"}
+  },
+  "autoload-dev": {
+      "psr-4": {"Lucid\\Component\\Queue\\": "/src/php"}
+  },
+  "license": "MIT",
+  "bin": [
+  ]
+}
