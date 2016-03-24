@@ -3,7 +3,7 @@ namespace Lucid\Component\Queue;
 
 interface QueueInterface
 {
-    public function parseCommandLineAction($argv);
+    public function parseCommandLineAction(array $argv);
     public function parseRequestAction();
     public function add(string $when, string $action, $parameters = []);
     public function process();

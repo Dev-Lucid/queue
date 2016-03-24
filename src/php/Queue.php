@@ -15,7 +15,7 @@ class Queue implements QueueInterface
     public $requiredMethodPrefix  = '';
     public $requiredViewPrefix    = '';
 
-    public function parseCommandLineAction($argv)
+    public function parseCommandLineAction(array $argv)
     {
         array_shift($argv);
         $action = array_shift($argv);
@@ -41,7 +41,7 @@ class Queue implements QueueInterface
 
             # check for forbidden/required prefixes
             $action = lucid::request()->string('action');
-            
+
             list($controllerName, $method) = $this->splitAction($action);
             if($controllerName == 'view') {
                 if ($this->forbiddenViewPrefix != '' && strpos($method, $this->forbiddenViewPrefix) === 0) {
