@@ -10,27 +10,33 @@ class Queue implements QueueInterface
         'post'=>[],
     ];
 
-    public $forbiddenMethodPrefix = '_';
-    public $forbiddenViewPrefix   = '_';
+    public $forbiddenMethodPrefix = '';
+    public $forbiddenViewPrefix   = '';
     public $requiredMethodPrefix  = '';
     public $requiredViewPrefix    = '';
 
     public function parseCommandLineAction(array $argv)
     {
         array_shift($argv);
-        $action = array_shift($argv);
-        $parameters = [];
-        while (count($argv) > 0) {
-            $parts = explode('=', array_shift($argv));
-            $key = array_shift($parts);
-            if (count($parts) > 0) {
-                $value = implode('=', $parts);
-            } else {
-                $value = true;
+
+        if (count($argv) > 0) {
+            $action = array_shift($argv);
+            $parameters = [];
+            while (count($argv) > 0) {
+                $parts = explode('=', array_shift($argv));
+                $key = array_shift($parts);
+                if (count($parts) > 0) {
+                    $value = implode('=', $parts);
+                } else {
+                    $value = true;
+                }
+                $parameters[$key] = $value;
             }
-            $parameters[$key] = $value;
+n
+            $this->add('request', $action, $parameters);
+        } else {
+            trigger_error('Queue->parseCommandLineAction was called, but no action was found.', E_USER_NOTICE);
         }
-        $this->add('request', $action, $parameters);
     }
 
     public function parseRequestAction()
