@@ -32,7 +32,7 @@ class Queue implements QueueInterface
                 }
                 $parameters[$key] = $value;
             }
-n
+
             $this->add('request', $action, $parameters);
         } else {
             trigger_error('Queue->parseCommandLineAction was called, but no action was found.', E_USER_NOTICE);
