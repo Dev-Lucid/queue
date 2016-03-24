@@ -42,6 +42,7 @@ class Queue implements QueueInterface
             # check for forbidden/required prefixes
             $action = lucid::request()->string('action');
 
+
             list($controllerName, $method) = $this->splitAction($action);
             if($controllerName == 'view') {
                 if ($this->forbiddenViewPrefix != '' && strpos($method, $this->forbiddenViewPrefix) === 0) {
@@ -59,9 +60,8 @@ class Queue implements QueueInterface
                 }
             }
 
-
-
             lucid::request()->un_set('action');
+
             $this->add('request', $action, lucid::request());
         }
     }
@@ -77,9 +77,10 @@ class Queue implements QueueInterface
 
     public function process()
     {
+        #lucid::logger()->debug(print_r($this->queues, true));
         foreach ($this->queues as $when=>$queue) {
             foreach($queue as $item) {
-                return $this->processItem($item[0], $item[1]);
+                $this->processItem($item[0], $item[1]);
             }
         }
     }
