@@ -136,7 +136,7 @@ class Queue implements QueueInterface
 
         }
         if ($type == 'view') {
-            return $this->factory->view($route['class'], $parameters);
+            return $this->factory->view($route['class'], $parameters, $route['method']);
         }
     }
 }
