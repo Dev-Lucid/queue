@@ -5,7 +5,7 @@ interface QueueInterface
 {
     public function parseCommandLineAction(array $argv);
     public function parseRequestAction();
-    public function add(string $when, string $action, $parameters = []);
+    public function add(string $when, array $route, $parameters = []);
     public function process();
-    public function processItem(string $action, $parameters=[]);
+    public function processItem(array $route, $parameters=[]);
 }

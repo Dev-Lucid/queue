@@ -9,11 +9,42 @@ class Queue implements QueueInterface
         'request'=>[],
         'post'=>[],
     ];
+    protected $logger  = null;
+    protected $router  = null;
+    protected $factory = null;
 
     public $forbiddenMethodPrefix = '';
     public $forbiddenViewPrefix   = '';
     public $requiredMethodPrefix  = '';
     public $requiredViewPrefix    = '';
+
+    public function __construct($logger = null, $router = null, $factory = null)
+    {
+        if (is_null($logger)) {
+            $this->logger = new \Lucid\Component\BasicLogger\BasicLogger();
+        } else {
+            if (is_object($logger) === false || in_array('Psr\\Log\\LoggerInterface', class_implements($logger)) === false) {
+                throw new \Exception('Queue contructor parameter $logger must either be null, or implement Psr\\Log\\LoggerInterface. If null is passed, then an instance of Lucid\\Component\\BasicLogger\\BasicLogger will be instantiated instead, and all messages will be passed along to error_log();');
+            }
+            $this->logger = $logger;
+        }
+        if (is_null($router)) {
+            $this->router = new \Lucid\Component\Router\Router($this->logger);
+        } else {
+            if (is_object($router) === false || in_array('Lucid\\Component\\Router\\RouterInterface', class_implements($router)) === false) {
+                throw new \Exception('Queue contructor parameter $router must either be null, or implement Lucid\\Component\\Router\\RouterInterface. If null is passed, then an instance of Lucid\\Component\\Router\\Router will be instantiated instead.');
+            }
+            $this->router = $router;
+        }
+        if (is_null($factory)) {
+            $this->factory = new \Lucid\Component\Factory\Factory($this->logger);
+        } else {
+            if (is_object($factory) === false || in_array('Lucid\\Component\\Factory\\FactoryMinimalInterface', class_implements($factory)) === false) {
+                throw new \Exception('Queue contructor parameter $factory must either be null, or implement Lucid\\Component\\Factory\\FactoryMinimalInterface. If null is passed, then an instance of Lucid\\Component\\Factory\\Factory will be instantiated instead.');
+            }
+            $this->factory = $factory;
+        }
+    }
 
     public function parseCommandLineAction(array $argv)
     {
@@ -21,6 +52,7 @@ class Queue implements QueueInterface
 
         if (count($argv) > 0) {
             $action = array_shift($argv);
+            $route = $this->router->determineRoute($action);
             $parameters = [];
             while (count($argv) > 0) {
                 $parts = explode('=', array_shift($argv));
@@ -33,7 +65,7 @@ class Queue implements QueueInterface
                 $parameters[$key] = $value;
             }
 
-            $this->add('request', $action, $parameters);
+            $this->add('request', $route, $parameters);
         } else {
             trigger_error('Queue->parseCommandLineAction was called, but no action was found.', E_USER_NOTICE);
         }
@@ -47,43 +79,41 @@ class Queue implements QueueInterface
 
             # check for forbidden/required prefixes
             $action = lucid::request()->string('action');
+            $route = $this->router->determineRoute($action);
 
-
-            list($controllerName, $method) = $this->splitAction($action);
-            if($controllerName == 'view') {
-                if ($this->forbiddenViewPrefix != '' && strpos($method, $this->forbiddenViewPrefix) === 0) {
+            if($route['type'] == 'view') {
+                if ($this->forbiddenViewPrefix != '' && strpos($route['class'], $this->forbiddenViewPrefix) === 0) {
                     throw new \Exception('For security reasons, views loaded directly from requests must NOT start with '.$this->forbiddenViewPrefix.'.');
                 }
-                if ($this->requiredViewPrefix != '' && strpos($method, $this->requiredViewPrefix) !== 0) {
+                if ($this->requiredViewPrefix != '' && strpos($route['class'], $this->requiredViewPrefix) !== 0) {
                     throw new \Exception('For security reasons, views loaded directly from requests MUST start with '.$this->requiredViewPrefix.'.');
                 }
             } else {
-                if ($this->forbiddenMethodPrefix != '' && strpos($method, $this->forbiddenMethodPrefix) === 0) {
+                if ($this->forbiddenMethodPrefix != '' && strpos($route['method'], $this->forbiddenMethodPrefix) === 0) {
                     throw new \Exception('For security reasons, controller methods called directly from requests must NOT start with '.$this->forbiddenMethodPrefix.'.');
                 }
-                if ($this->requiredMethodPrefix != '' && strpos($method, $this->requiredMethodPrefix) !== 0) {
+                if ($this->requiredMethodPrefix != '' && strpos($route['method'], $this->requiredMethodPrefix) !== 0) {
                     throw new \Exception('For security reasons, controller methods called directly from requests MUST start with '.$this->requiredMethodPrefix.'.');
                 }
             }
 
             lucid::request()->un_set('action');
 
-            $this->add('request', $action, lucid::request());
+            $this->add('request', $route, lucid::request());
         }
     }
 
-    public function add(string $when, string $action, $parameters = [])
+    public function add(string $when, array $route, $parameters = [])
     {
         if (isset($this->queues[$when]) === false) {
             $this->queues[$when] = [];
         }
 
-        $this->queues[$when][] = [$action, $parameters];
+        $this->queues[$when][] = [$route, $parameters];
     }
 
     public function process()
     {
-        #lucid::logger()->debug(print_r($this->queues, true));
         foreach ($this->queues as $when=>$queue) {
             foreach($queue as $item) {
                 $this->processItem($item[0], $item[1]);
@@ -91,69 +121,16 @@ class Queue implements QueueInterface
         }
     }
 
-    public function processItem(string $action, $parameters=[])
+    public function processItem(array $route, $parameters=[])
     {
-        list($controllerName, $method) = $this->splitAction($action);
+        $type   = $route['type'];
+        $class  = $route['class'];
+        $method = $route['method'];
 
-        try {
-            if ($controllerName == 'view') {
-                # 'view' isn't a real controller
-                lucid::logger()->info($controllerName.'->'.$method.'()');
-                return lucid::mvc()->view($method, $parameters);
-            } else {
-                $controller = lucid::mvc()->controller($controllerName);
-                lucid::logger()->info($controllerName.'->'.$method.'()');
-                return call_user_func_array([$controller, $method], $this->buildParameters($controller, $method, $parameters));
-            }
-        } catch(\Exception $e) {
-            lucid::error()->handle($e);
-            return;
-        }
-    }
+        $this->logger->info($class.'->'.$method.'()');
 
-    protected function splitAction(string $action): array
-    {
-        $splitAction = explode('.', $action);
-        if (count($splitAction) != 2) {
-            throw new \Exception('Incorrect format for action: '.$action.'. An action must contain two parts, separated by a period. The leftside part is either a controller name or the word \'view\', and the rightside part is either a method of the controller, or the name of the view to load.');
-        }
-        return $splitAction;
-    }
-
-    protected function buildParameters($object, string $method, $parameters=[])
-    {
-        $objectClass = get_class($object);
-
-        # we need to use the Request object's methods for casting parameters
-        if(is_array($parameters) === true) {
-            $parameters = new \Lucid\Component\Store\Store($parameters);
-        }
-
-        if (method_exists($objectClass, $method) === false) {
-            throw new \Exception($objectClass.' does not contain a method named '.$method.'. Valid methods are: '.implode(', ', get_class_methods($objectClass)));
-        }
-
-        $r = new \ReflectionMethod($objectClass, $method);
-        $methodParameters = $r->getParameters();
-
-        # construct an array of parameters in the right order using the passed parameters
-        $boundParameters = [];
-        foreach ($methodParameters as $methodParameter) {
-            $type = strval($methodParameter->getType());
-            if ($parameters->is_set($methodParameter->name)) {
-                if (is_null($type) === true || $type == '' || method_exists($parameters, $type) === false) {
-                    $boundParameters[] = $parameters->raw($methodParameter->name);
-                } else {
-                    $boundParameters[] = $parameters->$type($methodParameter->name);
-                }
-            } else {
-                if ($methodParameter->isDefaultValueAvailable() === true) {
-                    $boundParameters[] = $methodParameter->getDefaultValue();
-                } else {
-                    throw new \Exception('Could not find a value to set for parameter '.$methodParameter->name.' of function '.$thisClass.'->'.$method.', and no default value was set.');
-                }
-            }
-        }
-        return $boundParameters;
+        $object = $this->factory->$type($route['class']);
+        $parameters = $this->factory->buildParameters($object, $method, $parameters);
+        return call_user_func_array([$object, $method], $parameters);
     }
 }
