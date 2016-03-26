@@ -129,14 +129,8 @@ class Queue implements QueueInterface
 
         $this->logger->info($class.'->'.$method.'()');
 
-        if ($type == 'controller') {
-            $object = $this->factory->controller($route['class']);
-            $parameters = $this->factory->buildParameters($object, $method, $parameters);
-            return call_user_func_array([$object, $method], $parameters);
-
-        }
-        if ($type == 'view') {
-            return $this->factory->view($route['class'], $parameters, $route['method']);
-        }
+        $object = $this->factory->$type($route['class']);
+        $parameters = $this->factory->buildParameters($object, $method, $parameters);
+        return call_user_func_array([$object, $method], $parameters);
     }
 }
