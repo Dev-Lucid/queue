@@ -108,7 +108,6 @@ class Queue implements QueueInterface
         if (isset($this->queues[$when]) === false) {
             $this->queues[$when] = [];
         }
-
         $this->queues[$when][] = [$route, $parameters];
     }
 
@@ -126,11 +125,10 @@ class Queue implements QueueInterface
         $type   = $route['type'];
         $class  = $route['class'];
         $method = $route['method'];
-
         $this->logger->info($class.'->'.$method.'()');
 
         $object = $this->factory->$type($route['class']);
         $parameters = $this->factory->buildParameters($object, $method, $parameters);
-        return call_user_func_array([$object, $method], $parameters);
+        return $object->$method(...$parameters);
     }
 }
