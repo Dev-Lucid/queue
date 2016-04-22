@@ -32,7 +32,7 @@ class Queue implements QueueInterface
             $this->router = new \Lucid\Component\Router\Router($this->logger);
         } else {
             if (is_object($router) === false || in_array('Lucid\\Component\\Router\\RouterInterface', class_implements($router)) === false) {
-                throw new \Exception('Queue contructor parameter $router must either be null, or implement Lucid\\Component\\Router\\RouterInterface. If null is passed, then an instance of Lucid\\Component\\Router\\Router will be instantiated instead.');
+                throw new \Exception('Queue contructor parameter $router must either be null, or implement Lucid\\Component\\Router\\RouterInterface (https://github.com/dev-lucid/router). If null is passed, then an instance of Lucid\\Component\\Router\\Router will be instantiated instead.');
             }
             $this->router = $router;
         }
@@ -40,7 +40,7 @@ class Queue implements QueueInterface
             $this->factory = new \Lucid\Component\Factory\Factory($this->logger);
         } else {
             if (is_object($factory) === false || in_array('Lucid\\Component\\Factory\\FactoryMinimalInterface', class_implements($factory)) === false) {
-                throw new \Exception('Queue contructor parameter $factory must either be null, or implement Lucid\\Component\\Factory\\FactoryMinimalInterface. If null is passed, then an instance of Lucid\\Component\\Factory\\Factory will be instantiated instead.');
+                throw new \Exception('Queue contructor parameter $factory must either be null, or implement Lucid\\Component\\Factory\\FactoryMinimalInterface (https://github.com/Dev-Lucid/factory). If null is passed, then an instance of Lucid\\Component\\Factory\\Factory will be instantiated instead.');
             }
             $this->factory = $factory;
         }
@@ -69,16 +69,28 @@ class Queue implements QueueInterface
         } else {
             trigger_error('Queue->parseCommandLineAction was called, but no action was found.', E_USER_NOTICE);
         }
+        return $this;
     }
 
-    public function parseRequestAction()
+    public function parseRequestAction($request=null)
     {
+        if (is_null($request) === true) {
+            $request = [];
+        }
+        if (is_array($request) === true) {
+            $requestContainer = new \Lucid\Component\Container\Container($request);
+        } elseif (is_object($request) === false || in_array('Lucid\\Component\\Container\\ContainerInterface', class_implements($request)) === false) {
+            throw new \Exception('Queue->parseRequestAction parameter $request must either be null, an array, or an object that implements Lucid\\Component\\Container\\ContainerInterface (https://github.com/dev-lucid/container). If null is passed, then an instance of Lucid\\Component\\Factory\\Factory will be instantiated instead.');
+        } else {
+            $requestContainer = $request;
+        }
+
         # setup the action request
         #if (lucid::$use_rewrite === true) # figure out how to do this using php development server
-        if (lucid::request()->string('action', false) !== false) {
+        if ($requestContainer->string('action', false) !== false) {
 
             # check for forbidden/required prefixes
-            $action = lucid::request()->string('action');
+            $action = $requestContainer->string('action');
             $route = $this->router->determineRoute($action);
 
             if($route['type'] == 'view') {
@@ -97,10 +109,11 @@ class Queue implements QueueInterface
                 }
             }
 
-            lucid::request()->un_set('action');
+            $requestContainer->un_set('action');
 
-            $this->add('request', $route, lucid::request());
+            $this->add('request', $route, $requestContainer);
         }
+        return $this;
     }
 
     public function add(string $when, array $route, $parameters = [])
@@ -109,6 +122,7 @@ class Queue implements QueueInterface
             $this->queues[$when] = [];
         }
         $this->queues[$when][] = [$route, $parameters];
+        return $this;
     }
 
     public function process()
@@ -117,6 +131,15 @@ class Queue implements QueueInterface
             foreach($queue as $item) {
                 $this->processItem($item[0], $item[1]);
             }
+        }
+        $this->clear();
+        return $this;
+    }
+
+    public function clear()
+    {
+        foreach ($this->queues as $when=>$queue) {
+            $this->queues[$when] = [];
         }
     }
 
@@ -128,7 +151,7 @@ class Queue implements QueueInterface
         $this->logger->info($class.'->'.$method.'()');
 
         $object = $this->factory->$type($route['class']);
-        $parameters = $this->factory->buildParameters($object, $method, $parameters);
-        return $object->$method(...$parameters);
+        $typedParameters = $this->factory->buildParameters($object, $method, $parameters);
+        return $object->$method(...$typedParameters);
     }
 }

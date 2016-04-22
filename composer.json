@@ -1,7 +1,6 @@
 {
-  "name": "queue",
+  "name": "dev-lucid/queue",
   "type":"library",
-  "repo": "devlucid/queue",
   "description": "",
   "authors": [
       {
@@ -19,7 +18,14 @@
       "psr-4": {"Lucid\\Component\\Queue\\": "/src/php"}
   },
   "autoload-dev": {
-      "psr-4": {"Lucid\\Component\\Queue\\": "/src/php"}
+      "psr-4": {"Lucid\\Component\\Queue\\": "src/php", "App\\": "tests/app/baseClasses/"}
+  },
+  "require":{
+    "php": "^7.0",
+    "dev-lucid/container":"~1.0",
+    "dev-lucid/basiclogger": "~1.0",
+    "dev-lucid/router": "~1.0",
+    "dev-lucid/factory": "^1.0"
   },
   "license": "MIT",
   "bin": [

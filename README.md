@@ -1,1 +1,2 @@
-# queue
+# Queue
+A queue for processing actions in order. Uses \Lucid\Component\Factory (https://packagist.org/packages/dev-lucid/factory) for instantiating objects, and \Lucid\Component\Router (https://packagist.org/packages/dev-lucid/router) for parsing actions from either the request or command line arguments.
