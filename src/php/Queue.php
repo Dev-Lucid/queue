@@ -109,7 +109,7 @@ class Queue implements QueueInterface
                 }
             }
 
-            $requestContainer->un_set('action');
+            $requestContainer->delete('action');
 
             $this->add('request', $route, $requestContainer);
         }
